@@ -2,31 +2,28 @@ import streamlit as st
 import requests
 import base64
 import json
-import os
 import io
-from PyPDF2 import PdfFileReader, PdfFileWriter
+from PyPDF2 import PdfReader, PdfWriter
 
 API_URL = "https://app-backend-v3zxsfhx557qe.azurewebsites.net/"
-# API_URL = 'http://localhost:50505'
 
 st.title("AI Pediatrician | Admin App")
 
 headers = {
-        'Content-Type': 'application/json'
-        }
-
+    'Content-Type': 'application/json'
+}
 
 def split_and_encode_pdf(pdf_file):
-    pdf_reader = PdfFileReader(pdf_file)
-    num_pages = pdf_reader.numPages
+    pdf_reader = PdfReader(pdf_file)
+    num_pages = len(pdf_reader.pages)
 
     encoded_sub_files = []
 
     for i in range(0, num_pages, 10):
-        pdf_writer = PdfFileWriter()
+        pdf_writer = PdfWriter()
 
         for page_num in range(i, min(i+10, num_pages)):
-            pdf_writer.addPage(pdf_reader.getPage(page_num))
+            pdf_writer.add_page(pdf_reader.pages[page_num])
 
         output_pdf_bytes = io.BytesIO()
         pdf_writer.write(output_pdf_bytes)
@@ -34,13 +31,13 @@ def split_and_encode_pdf(pdf_file):
 
         encoded_data = base64.b64encode(output_pdf_bytes.read()).decode()
         encoded_sub_files.append({
-            "name": f"{os.path.splitext(pdf_file.name)[0]}_{i+1}-{min(i+10, num_pages)}.pdf",
+            "name": f"{pdf_file.name}_{i+1}-{min(i+10, num_pages)}.pdf",
             "data": encoded_data
         })
 
     return encoded_sub_files
 
-uploaded_files = st.file_uploader("Upload Files", type=["pdf"], accept_multiple_files=False)
+uploaded_files = st.file_uploader("Upload Files", type=["pdf"], accept_multiple_files=True)
 
 # Process Button
 if st.button("Process Files"):
@@ -52,15 +49,8 @@ if st.button("Process Files"):
 
                 encoded_files = []
                 for file in uploaded_files:
-                    if file.type == 'application/pdf':
-                        encoded_sub_files = split_and_encode_pdf(file)
-                        encoded_files.extend(encoded_sub_files)
-                    else:
-                        # For other file types, encode the entire file
-                        encoded_files.append({
-                            "name": file.name,
-                            "data": base64.b64encode(file.read()).decode()
-                        })
+                    encoded_sub_files = split_and_encode_pdf(file)
+                    encoded_files.extend(encoded_sub_files)
 
                 data = {
                     "files": encoded_files
